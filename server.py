@@ -11,11 +11,81 @@ client = MongoClient(mongo_uri)
 database = client.get_database("DB")
 collection = database.get_collection("Businesses")
 
-#################################################
-#################################################
+######################################################
+######################################################
+##### ROUTES AVAILABLE FOR CLIENT AUTHENTICATION #####
+######################################################
+######################################################
+
+### REGISTER BUSINESS ###
+@app.route('/register_business', methods=['POST'])
+def register_business():
+    user_id = request.json.get('userID')
+    business_id = request.json.get('businessID')
+    email = request.json.get('email')
+    password = request.json.get('password')
+    address = request.json.get('address')
+
+    if not user_id or not business_id or not email or not password or not address:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Check if the businessID or email is already registered
+    existing_business = collection.find_one({
+        '$or': [
+            {'businessID': business_id},
+            {'email': email}
+        ]
+    })
+
+    if existing_business:
+        return jsonify({'error': 'Business or email already registered'}), 409
+
+    # Insert the new business into the 'Businesses' collection
+    new_business = {
+        'userID': user_id,
+        'businessID': business_id,
+        'email': email,
+        'password': password,
+        'address': address,
+        'products': [],
+        'services': [],
+        'orders': []
+    }
+
+    collection.insert_one(new_business)
+
+    return jsonify({'message': 'Business registered successfully'})
+
+### LOGIN BUSINESS ###
+@app.route('/business_login', methods=['POST'])
+def business_login():
+    user_id = request.json.get('userID')
+    password = request.json.get('password')
+
+    if not user_id or not password:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the business based on userID and password
+    business_data = collection.find_one({'userID': user_id, 'password': password})
+
+    if not business_data:
+        return jsonify({'error': 'Invalid userID or password'}), 401
+
+    # You may want to return additional information such as businessID, email, etc.
+    response_data = {
+        'message': 'Login successful',
+        'businessID': business_data['businessID'],
+        'email': business_data['email']
+        # Add more fields as needed
+    }
+
+    return jsonify(response_data)
+
+################################################
+################################################
 ##### ROUTES AVAILABLE FOR CLIENT SETTINGS #####
-#################################################
-#################################################
+################################################
+################################################
 
 ### UPDATE PASSWORD ###
 @app.route('/update_password', methods=['PUT'])
@@ -36,6 +106,52 @@ def update_password():
     collection.update_one({'businessID': business_id}, {'$set': {'password': new_password}})
 
     return jsonify({'message': 'Password updated successfully'})
+
+### UPDATE EMAIL ###
+@app.route('/update_email', methods=['PUT'])
+def update_email():
+    business_id = request.json.get('businessID')
+    new_email = request.json.get('newEmail')
+
+    if not business_id or not new_email:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the document based on businessID
+    business_data = collection.find_one({'businessID': business_id})
+
+    if not business_data:
+        return jsonify({'error': 'Business not found'}), 404
+
+    # Check if the new email is already registered by another business
+    existing_business = collection.find_one({'email': new_email})
+
+    if existing_business:
+        return jsonify({'error': 'Email already registered by another business'}), 409
+
+    # Update the email in the document
+    collection.update_one({'businessID': business_id}, {'$set': {'email': new_email}})
+
+    return jsonify({'message': 'Email updated successfully'})
+
+### UPDATE ADDRESS ###
+@app.route('/update_address', methods=['PUT'])
+def update_address():
+    business_id = request.json.get('businessID')
+    new_address = request.json.get('newAddress')
+
+    if not business_id or not new_address:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the document based on businessID
+    business_data = collection.find_one({'businessID': business_id})
+
+    if not business_data:
+        return jsonify({'error': 'Business not found'}), 404
+
+    # Update the address in the document
+    collection.update_one({'businessID': business_id}, {'$set': {'address': new_address}})
+
+    return jsonify({'message': 'Address updated successfully'})
 
 #################################################
 #################################################
@@ -270,6 +386,65 @@ def remove_service():
     collection.update_one({'businessID': business_id}, {'$set': {'services': updated_services}})
 
     return jsonify({'message': 'Service removed successfully'})
+
+#####################################################
+#####################################################
+##### ROUTES AVAILABLE FOR CLIENT ORDERS (CRUD) #####
+#####################################################
+#####################################################
+
+### INSERT ORDER ###
+@app.route('/insert_order', methods=['POST'])
+def insert_order():
+    business_id = request.json.get('businessID')
+    order_data = request.json.get('order')
+
+    if not business_id or not order_data:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the document based on businessID
+    business_data = businesses_collection.find_one({'businessID': business_id})
+
+    if not business_data:
+        return jsonify({'error': 'Business not found'}), 404
+
+    # Insert the new order into the 'orders' array
+    orders = business_data.get('orders', [])
+    orders.append(order_data)
+
+    # Update the document in the database
+    businesses_collection.update_one({'businessID': business_id}, {'$set': {'orders': orders}})
+
+    return jsonify({'message': 'Order inserted successfully'})
+
+### UPDATE ORDER ###
+@app.route('/update_order', methods=['PUT'])
+def update_order():
+    business_id = request.json.get('businessID')
+    order_id = request.json.get('orderID')
+    updated_order_data = request.json.get('updatedOrder')
+
+    if not business_id or not order_id or not updated_order_data:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the document based on businessID
+    business_data = businesses_collection.find_one({'businessID': business_id})
+
+    if not business_data:
+        return jsonify({'error': 'Business not found'}), 404
+
+    # Update specific fields of the order within the 'orders' array
+    orders = business_data.get('orders', [])
+
+    for order in orders:
+        if order.get('orderID') == order_id:
+            for key, value in updated_order_data.items():
+                order[key] = value
+
+    # Update the document in the database
+    businesses_collection.update_one({'businessID': business_id}, {'$set': {'orders': orders}})
+
+    return jsonify({'message': 'Order updated successfully'})
 
 if __name__ == '__main__':
     # Use environment variables for host and port
