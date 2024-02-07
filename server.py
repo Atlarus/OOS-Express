@@ -489,6 +489,55 @@ def remove_order():
 
     return jsonify({'message': 'Order removed successfully'})
 
+###############################################
+###############################################
+##### ROUTES AVAILABLE FOR PLATFORM ADMIN #####
+###############################################
+###############################################
+
+### REMOVE BUSINESS ###
+@app.route('/remove_business', methods=['DELETE'])
+def remove_business():
+    business_id = request.json.get('businessID')
+
+    if not business_id:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find and remove the document based on businessID
+    result = collection.delete_one({'businessID': business_id})
+
+    if result.deleted_count == 0:
+        return jsonify({'error': 'Business not found'}), 404
+    else:
+        return jsonify({'message': 'Business removed successfully'})
+
+### STORE TAGS ###
+@app.route('/store_ordered_tags', methods=['POST'])
+def store_ordered_tags():
+    business_id = request.json.get('businessID')
+    ordered_tags = request.json.get('orderedTags')
+
+    if not business_id or not ordered_tags:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the document based on businessID
+    business_data = collection.find_one({'businessID': business_id})
+
+    if not business_data:
+        return jsonify({'error': 'Business not found'}), 404
+
+    # Store the ordered tags in the document
+    existing_ordered_tags = business_data.get('orderedTags', [])
+    existing_ordered_tags.extend(ordered_tags)
+
+    # Remove duplicates by converting the list to a set and then back to a list
+    unique_ordered_tags = list(set(existing_ordered_tags))
+
+    # Update the document in the database
+    collection.update_one({'businessID': business_id}, {'$set': {'orderedTags': unique_ordered_tags}})
+
+    return jsonify({'message': 'Ordered tags stored successfully'})
+
 if __name__ == '__main__':
     # Use environment variables for host and port
     host = os.environ.get('HOST', '0.0.0.0')
