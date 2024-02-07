@@ -403,7 +403,7 @@ def insert_order():
         return jsonify({'error': 'Invalid request data'}), 400
 
     # Query the database to find the document based on businessID
-    business_data = businesses_collection.find_one({'businessID': business_id})
+    business_data = collection.find_one({'businessID': business_id})
 
     if not business_data:
         return jsonify({'error': 'Business not found'}), 404
@@ -413,9 +413,27 @@ def insert_order():
     orders.append(order_data)
 
     # Update the document in the database
-    businesses_collection.update_one({'businessID': business_id}, {'$set': {'orders': orders}})
+    collection.update_one({'businessID': business_id}, {'$set': {'orders': orders}})
 
     return jsonify({'message': 'Order inserted successfully'})
+
+### RETRIEVE ORDERS ###
+@app.route('/get_all_orders', methods=['GET'])
+def get_all_orders():
+    business_id = request.args.get('businessID')
+
+    if not business_id:
+        return jsonify({'error': 'BusinessID parameter is missing'}), 400
+
+    # Query the database to retrieve all orders based on the provided businessID
+    business_data = collection.find_one({'businessID': business_id})
+
+    if not business_data:
+        return jsonify({'error': 'Business not found'}), 404
+
+    orders = business_data.get('orders', [])
+
+    return jsonify({'businessID': business_id, 'orders': orders})
 
 ### UPDATE ORDER ###
 @app.route('/update_order', methods=['PUT'])
@@ -428,7 +446,7 @@ def update_order():
         return jsonify({'error': 'Invalid request data'}), 400
 
     # Query the database to find the document based on businessID
-    business_data = businesses_collection.find_one({'businessID': business_id})
+    business_data = collection.find_one({'businessID': business_id})
 
     if not business_data:
         return jsonify({'error': 'Business not found'}), 404
@@ -442,9 +460,34 @@ def update_order():
                 order[key] = value
 
     # Update the document in the database
-    businesses_collection.update_one({'businessID': business_id}, {'$set': {'orders': orders}})
+    collection.update_one({'businessID': business_id}, {'$set': {'orders': orders}})
 
     return jsonify({'message': 'Order updated successfully'})
+
+### REMOVE ORDER ###
+@app.route('/remove_order', methods=['DELETE'])
+def remove_order():
+    business_id = request.json.get('businessID')
+    order_id = request.json.get('orderID')
+
+    if not business_id or not order_id:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the document based on businessID
+    business_data = collection.find_one({'businessID': business_id})
+
+    if not business_data:
+        return jsonify({'error': 'Business not found'}), 404
+
+    # Remove the order from the 'orders' array
+    orders = business_data.get('orders', [])
+
+    updated_orders = [order for order in orders if order.get('orderID') != order_id]
+
+    # Update the document in the database
+    collection.update_one({'businessID': business_id}, {'$set': {'orders': updated_orders}})
+
+    return jsonify({'message': 'Order removed successfully'})
 
 if __name__ == '__main__':
     # Use environment variables for host and port
