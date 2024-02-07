@@ -538,6 +538,22 @@ def store_ordered_tags():
 
     return jsonify({'message': 'Ordered tags stored successfully'})
 
+### GET ALL TAGS ###
+@app.route('/get_all_ordered_tags', methods=['GET'])
+def get_all_ordered_tags():
+    # Query the database to retrieve all businesses and their ordered tags
+    all_businesses_data = collection.find({}, {'_id': 0, 'businessID': 1, 'orderedTags': 1})
+
+    ordered_tags_by_business = {}
+
+    for business_data in all_businesses_data:
+        business_id = business_data.get('businessID')
+        ordered_tags = business_data.get('orderedTags', [])
+
+        ordered_tags_by_business[business_id] = ordered_tags
+
+    return jsonify({'orderedTagsByBusiness': ordered_tags_by_business})
+
 if __name__ == '__main__':
     # Use environment variables for host and port
     host = os.environ.get('HOST', '0.0.0.0')
