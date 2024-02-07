@@ -13,6 +13,32 @@ collection = database.get_collection("Businesses")
 
 #################################################
 #################################################
+##### ROUTES AVAILABLE FOR CLIENT SETTINGS #####
+#################################################
+#################################################
+
+### UPDATE PASSWORD ###
+@app.route('/update_password', methods=['PUT'])
+def update_password():
+    business_id = request.json.get('businessID')
+    new_password = request.json.get('newPassword')
+
+    if not business_id or not new_password:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the document based on businessID
+    business_data = collection.find_one({'businessID': business_id})
+
+    if not business_data:
+        return jsonify({'error': 'Business not found'}), 404
+
+    # Update the password in the document
+    collection.update_one({'businessID': business_id}, {'$set': {'password': new_password}})
+
+    return jsonify({'message': 'Password updated successfully'})
+
+#################################################
+#################################################
 ##### ROUTES AVAILABLE FOR CLIENT CUSTOMERS #####
 #################################################
 #################################################
