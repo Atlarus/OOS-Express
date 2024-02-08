@@ -10,6 +10,7 @@ client = MongoClient(mongo_uri)
 
 database = client.get_database("DB")
 collection = database.get_collection("Businesses")
+referrals_collection = database.get_collection("Referrals")
 
 ######################################################
 ######################################################
@@ -25,6 +26,7 @@ def register_business():
     email = request.json.get('email')
     password = request.json.get('password')
     address = request.json.get('address')
+    referral = request.json.get('referral')
 
     if not user_id or not business_id or not email or not password or not address:
         return jsonify({'error': 'Invalid request data'}), 400
@@ -53,8 +55,34 @@ def register_business():
     }
 
     collection.insert_one(new_business)
+    
+    if referral and business_id:
+        register_referral(referral, business_id)
 
     return jsonify({'message': 'Business registered successfully'})
+
+### ADD TO REFERRAL LIST ###
+def register_referral(referral_code, business_id):
+    if not referral_code or not business_id:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the document based on referralCode
+    referrals_data = referrals_collection.find_one({'referralCode': referral_code})
+
+    if not referrals_data:
+        return jsonify({'error': 'Referral not found'}), 404
+
+    # Update the referrals array in the document
+    existing_referrals = referrals_data.get('referrals', [])
+    existing_referrals.extend(business_id)
+
+    # Remove duplicates by converting the list to a set and then back to a list
+    unique_referrals = list(set(existing_referrals))
+
+    # Update the document in the database
+    referrals_collection.update_one({'referralCode': referral_code}, {'$set': {'referrals': unique_referrals}})
+
+    return jsonify({'message': 'Referrals updated successfully'})
 
 ### LOGIN BUSINESS ###
 @app.route('/business_login', methods=['POST'])
@@ -510,6 +538,31 @@ def remove_business():
         return jsonify({'error': 'Business not found'}), 404
     else:
         return jsonify({'message': 'Business removed successfully'})
+    
+### ADD BUSINESS TO BE REFERRAL ###
+@app.route('/add_referral', methods=['POST'])
+def add_referral():
+    business_id = request.json.get('businessID')
+
+    if not business_id:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Check if the referral code already exists
+    existing_referral = referrals_collection.find_one({'businessID': business_id})
+
+    if existing_referral:
+        return jsonify({'error': 'Referral already exists'}), 409
+
+    # Insert a new document into the 'Referrals' collection with an empty 'referrals' array
+    new_referral = {
+        'businessID': business_id,
+        'referralCode': business_id,
+        'referrals': []
+    }
+
+    referrals_collection.insert_one(new_referral)
+
+    return jsonify({'message': 'Referral added successfully'})
 
 ### STORE TAGS ###
 @app.route('/store_ordered_tags', methods=['POST'])
