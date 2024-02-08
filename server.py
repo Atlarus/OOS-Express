@@ -11,6 +11,7 @@ client = MongoClient(mongo_uri)
 database = client.get_database("DB")
 collection = database.get_collection("Businesses")
 referrals_collection = database.get_collection("Referrals")
+billings_collection = database.get_collection("Billings")
 
 ######################################################
 ######################################################
@@ -606,6 +607,91 @@ def get_all_ordered_tags():
         ordered_tags_by_business[business_id] = ordered_tags
 
     return jsonify({'orderedTagsByBusiness': ordered_tags_by_business})
+
+### INSERTING NEW BUSINESS TO BILLING ###
+@app.route('/insert_billing', methods=['POST'])
+def insert_billing():
+    business_id = request.json.get('businessID')
+
+    if not business_id:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Check if a billing document already exists for the given businessID
+    existing_billing = billings_collection.find_one({'businessID': business_id})
+
+    if existing_billing:
+        return jsonify({'error': 'Billing document already exists'}), 409
+
+    # Insert a new document into the 'Billings' collection with an empty 'bills' array
+    new_billing = {
+        'businessID': business_id,
+        'bills': [],
+        'subscriptionLevel': ""
+    }
+
+    billings_collection.insert_one(new_billing)
+
+    return jsonify({'message': 'Billing document inserted successfully'})
+
+### ADD BILL TO BUSINESS ###
+@app.route('/add_bill', methods=['POST'])
+def add_bill():
+    business_id = request.json.get('businessID')
+    payment_status = request.json.get('paymentStatus')
+    amount = request.json.get('amount')
+    due = request.json.get('due')
+
+    if not business_id or not payment_status or not amount or not due:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the document based on businessID
+    billing_data = billings_collection.find_one({'businessID': business_id})
+
+    if not billing_data:
+        return jsonify({'error': 'Billing document not found'}), 404
+
+    # Add a new bill to the 'bills' array in the document
+    bills = billing_data.get('bills', [])
+    new_bill = {
+        'paymentStatus': payment_status,
+        'amount': amount,
+        'due': due
+    }
+    bills.append(new_bill)
+
+    # Update the document in the database
+    billings_collection.update_one({'businessID': business_id}, {'$set': {'bills': bills}})
+
+    return jsonify({'message': 'Bill added successfully'})
+
+### UPDATE BILL VALUES ###
+@app.route('/update_bill', methods=['PUT'])
+def update_bill():
+    business_id = request.json.get('businessID')
+    bill_index = request.json.get('billIndex')  # Index of the bill to be updated in the 'bills' array
+    updated_values = request.json.get('updatedValues')  # Updated values for the bill
+
+    if not business_id or bill_index is None or not updated_values:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the document based on businessID
+    billing_data = billings_collection.find_one({'businessID': business_id})
+
+    if not billing_data:
+        return jsonify({'error': 'Billing document not found'}), 404
+
+    # Update specific values of the bill in the 'bills' array
+    bills = billing_data.get('bills', [])
+
+    if 0 <= bill_index < len(bills):
+        for key, value in updated_values.items():
+            bills[bill_index][key] = value
+
+        # Update the document in the database
+        billings_collection.update_one({'businessID': business_id}, {'$set': {'bills': bills}})
+        return jsonify({'message': 'Bill updated successfully'})
+    else:
+        return jsonify({'error': 'Invalid bill index'}), 400
 
 if __name__ == '__main__':
     # Use environment variables for host and port
