@@ -621,6 +621,109 @@ def update_coupon():
 
     return jsonify({'error': 'Coupon not found'}), 404
 
+############################################################################
+############################################################################
+#################### ROUTES AVAILABLE FOR CLIENT EVENTS ####################
+############################################################################
+############################################################################
+
+### ADD EVENT ###
+@app.route('/add_event', methods=['POST'])
+def add_event():
+    business_id = request.json.get('businessID')
+    new_event = request.json.get('newEvent')
+
+    if not business_id or not new_event:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the document based on businessID
+    business_data = collection.find_one({'businessID': business_id})
+
+    if not business_data:
+        return jsonify({'error': 'Business not found'}), 404
+
+    # Add a new event to the 'events' array in the document
+    events = business_data.get('events', [])
+    events.append(new_event)
+
+    # Update the document in the database
+    collection.update_one({'businessID': business_id}, {'$set': {'events': events}})
+
+    return jsonify({'message': 'Event added successfully'})
+
+### UPDATE EVENT DETAILS ###
+@app.route('/update_event', methods=['PUT'])
+def update_event():
+    business_id = request.json.get('businessID')
+    event_id = request.json.get('eventID')
+    updated_values = request.json.get('updatedValues')
+
+    if not business_id or not event_id or not updated_values:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the document based on businessID
+    business_data = collection.find_one({'businessID': business_id})
+
+    if not business_data:
+        return jsonify({'error': 'Business not found'}), 404
+
+    # Update specific values of the event in the 'events' array
+    events = business_data.get('events', [])
+
+    for event in events:
+        if event.get('eventID') == event_id:
+            for key, value in updated_values.items():
+                event[key] = value
+
+            # Update the document in the database
+            collection.update_one({'businessID': business_id}, {'$set': {'events': events}})
+            return jsonify({'message': 'Event updated successfully'})
+
+    return jsonify({'error': 'Event not found'}), 404
+
+### GET ALL EVENTS ###
+@app.route('/get_all_events', methods=['GET'])
+def get_all_events():
+    business_id = request.args.get('businessID')
+
+    if not business_id:
+        return jsonify({'error': 'BusinessID parameter is missing'}), 400
+
+    # Query the database to retrieve all events based on the provided businessID
+    business_data = collection.find_one({'businessID': business_id})
+
+    if not business_data:
+        return jsonify({'error': 'Business not found'}), 404
+
+    events = business_data.get('events', [])
+
+    return jsonify({'businessID': business_id, 'events': events})
+
+### REMOVE EVENT ###
+@app.route('/remove_event', methods=['DELETE'])
+def remove_event():
+    business_id = request.json.get('businessID')
+    event_id = request.json.get('eventID')
+
+    if not business_id or not event_id:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the document based on businessID
+    business_data = collection.find_one({'businessID': business_id})
+
+    if not business_data:
+        return jsonify({'error': 'Business not found'}), 404
+
+    # Remove the event from the 'events' array in the document
+    events = business_data.get('events', [])
+
+    updated_events = [event for event in events if event.get('eventID') != event_id]
+
+    # Update the document in the database
+    collection.update_one({'businessID': business_id}, {'$set': {'events': updated_events}})
+
+    return jsonify({'message': 'Event removed successfully'})
+
 #############################################################################
 #############################################################################
 #################### ROUTES AVAILABLE FOR PLATFORM ADMIN ####################
