@@ -520,6 +520,109 @@ def remove_order():
 
 #############################################################################
 #############################################################################
+#################### ROUTES AVAILABLE FOR CLIENT COUPONS ####################
+#############################################################################
+#############################################################################
+
+### INSERT COUPON ###
+@app.route('/insert_coupon', methods=['POST'])
+def insert_coupon():
+    business_id = request.json.get('businessID')
+    new_coupon = request.json.get('newCoupon')
+
+    if not business_id or not new_coupon:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the document based on businessID
+    business_data = collection.find_one({'businessID': business_id})
+
+    if not business_data:
+        return jsonify({'error': 'Business not found'}), 404
+
+    # Add a new coupon to the 'coupons' array in the document
+    coupons = business_data.get('coupons', [])
+    coupons.append(new_coupon)
+
+    # Update the document in the database
+    collection.update_one({'businessID': business_id}, {'$set': {'coupons': coupons}})
+
+    return jsonify({'message': 'Coupon inserted successfully'})
+
+### REMOVE COUPON ###
+@app.route('/remove_coupon', methods=['DELETE'])
+def remove_coupon():
+    business_id = request.json.get('businessID')
+    coupon_code = request.json.get('couponCode')
+
+    if not business_id or not coupon_code:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the document based on businessID
+    business_data = collection.find_one({'businessID': business_id})
+
+    if not business_data:
+        return jsonify({'error': 'Business not found'}), 404
+
+    # Remove the coupon from the 'coupons' array in the document
+    coupons = business_data.get('coupons', [])
+
+    updated_coupons = [coupon for coupon in coupons if coupon.get('code') != coupon_code]
+
+    # Update the document in the database
+    collection.update_one({'businessID': business_id}, {'$set': {'coupons': updated_coupons}})
+
+    return jsonify({'message': 'Coupon removed successfully'})
+
+### READ ALL COUPONS ###
+@app.route('/get_all_coupons', methods=['GET'])
+def get_all_coupons():
+    business_id = request.args.get('businessID')
+
+    if not business_id:
+        return jsonify({'error': 'BusinessID parameter is missing'}), 400
+
+    # Query the database to retrieve all coupons based on the provided businessID
+    business_data = collection.find_one({'businessID': business_id})
+
+    if not business_data:
+        return jsonify({'error': 'Business not found'}), 404
+
+    coupons = business_data.get('coupons', [])
+
+    return jsonify({'businessID': business_id, 'coupons': coupons})
+
+### UPDATE COUPONS ###
+@app.route('/update_coupon', methods=['PUT'])
+def update_coupon():
+    business_id = request.json.get('businessID')
+    coupon_code = request.json.get('couponCode')
+    updated_values = request.json.get('updatedValues')
+
+    if not business_id or not coupon_code or not updated_values:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the document based on businessID
+    business_data = collection.find_one({'businessID': business_id})
+
+    if not business_data:
+        return jsonify({'error': 'Business not found'}), 404
+
+    # Update specific values of the coupon in the 'coupons' array
+    coupons = business_data.get('coupons', [])
+
+    for coupon in coupons:
+        if coupon.get('code') == coupon_code:
+            for key, value in updated_values.items():
+                coupon[key] = value
+
+            # Update the document in the database
+            collection.update_one({'businessID': business_id}, {'$set': {'coupons': coupons}})
+            return jsonify({'message': 'Coupon updated successfully'})
+
+    return jsonify({'error': 'Coupon not found'}), 404
+
+#############################################################################
+#############################################################################
 #################### ROUTES AVAILABLE FOR PLATFORM ADMIN ####################
 #############################################################################
 #############################################################################
