@@ -212,6 +212,7 @@ def get_products_services():
 
     return jsonify(result)
 
+### ADD REVIEW TO PRODUCT ###
 @app.route('/insert_review', methods=['POST'])
 def insert_review():
     business_id = request.json.get('businessID')
@@ -243,6 +244,7 @@ def insert_review():
 
     return jsonify({'error': 'Product not found'}), 404
 
+### GET ALL REVIEWS FROM A PRODUCT ###
 @app.route('/get_all_reviews', methods=['GET'])
 def get_all_reviews():
     business_id = request.args.get('businessID')
@@ -975,6 +977,7 @@ def update_status():
 
     return jsonify({'message': 'Status updated successfully'})
 
+### REMOVE REVIEW FROM PRODUCT ###
 @app.route('/remove_review', methods=['DELETE'])
 def remove_review():
     business_id = request.json.get('businessID')
