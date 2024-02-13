@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from pymongo import MongoClient
 import os
+import hashlib
 
 app = Flask(__name__)
 
@@ -43,12 +44,15 @@ def register_business():
     if existing_business:
         return jsonify({'error': 'Business or email already registered'}), 409
 
-    # Insert the new business into the 'Businesses' collection
+    # Encrypt the password using SHA-256
+    hashed_password = hashlib.sha256(password.encode()).hexdigest()
+
+    # Insert the new business into the 'Businesses' collection with encrypted password
     new_business = {
         'userID': user_id,
         'businessID': business_id,
         'email': email,
-        'password': password,
+        'password': hashed_password,
         'address': address,
         'products': [],
         'services': [],
@@ -56,7 +60,7 @@ def register_business():
     }
 
     collection.insert_one(new_business)
-    
+
     if referral and business_id:
         register_referral(referral, business_id)
 
@@ -94,10 +98,20 @@ def business_login():
     if not user_id or not password:
         return jsonify({'error': 'Invalid request data'}), 400
 
-    # Query the database to find the business based on userID and password
-    business_data = collection.find_one({'userID': user_id, 'password': password})
+    # Query the database to find the business based on userID
+    business_data = collection.find_one({'userID': user_id})
 
     if not business_data:
+        return jsonify({'error': 'Invalid userID or password'}), 401
+
+    # Retrieve the hashed password from the database
+    stored_password = business_data.get('password', '')
+
+    # Hash the provided password using SHA-256 for comparison
+    hashed_password = hashlib.sha256(password.encode()).hexdigest()
+
+    # Compare the hashed passwords
+    if hashed_password != stored_password:
         return jsonify({'error': 'Invalid userID or password'}), 401
 
     # You may want to return additional information such as businessID, email, etc.
