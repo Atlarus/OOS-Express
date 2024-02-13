@@ -212,6 +212,62 @@ def get_products_services():
 
     return jsonify(result)
 
+@app.route('/insert_review', methods=['POST'])
+def insert_review():
+    business_id = request.json.get('businessID')
+    product_id = request.json.get('productID')
+    new_review = request.json.get('newReview')
+
+    if not business_id or not product_id or not new_review:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the document based on businessID
+    business_data = collection.find_one({'businessID': business_id})
+
+    if not business_data:
+        return jsonify({'error': 'Business not found'}), 404
+
+    # Find the product within the 'products' array
+    products = business_data.get('products', [])
+
+    for product in products:
+        if product.get('productID') == product_id:
+            # Add a new review to the 'review' array in the product
+            product_reviews = product.get('review', [])
+            product_reviews.append(new_review)
+
+            # Update the document in the database
+            collection.update_one({'businessID': business_id, 'products.productID': product_id},
+                                             {'$set': {'products.$.review': product_reviews}})
+            return jsonify({'message': 'Review inserted successfully'})
+
+    return jsonify({'error': 'Product not found'}), 404
+
+@app.route('/get_all_reviews', methods=['GET'])
+def get_all_reviews():
+    business_id = request.args.get('businessID')
+    product_id = request.args.get('productID')
+
+    if not business_id or not product_id:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the document based on businessID
+    business_data = collection.find_one({'businessID': business_id})
+
+    if not business_data:
+        return jsonify({'error': 'Business not found'}), 404
+
+    # Find the product within the 'products' array
+    products = business_data.get('products', [])
+
+    for product in products:
+        if product.get('productID') == product_id:
+            # Retrieve all reviews for the specified product
+            product_reviews = product.get('review', [])
+            return jsonify({'businessID': business_id, 'productID': product_id, 'reviews': product_reviews})
+
+    return jsonify({'error': 'Product not found'}), 404
+
 #####################################################################################
 #####################################################################################
 #################### ROUTES AVAILABLE FOR CLIENT PRODUCTS (CRUD) ####################
@@ -918,6 +974,38 @@ def update_status():
     billings_collection.update_one({'businessID': business_id}, {'$set': {'status': new_status}})
 
     return jsonify({'message': 'Status updated successfully'})
+
+@app.route('/remove_review', methods=['DELETE'])
+def remove_review():
+    business_id = request.json.get('businessID')
+    product_id = request.json.get('productID')
+    review_id = request.json.get('reviewID')
+
+    if not business_id or not product_id or not review_id:
+        return jsonify({'error': 'Invalid request data'}), 400
+
+    # Query the database to find the document based on businessID
+    business_data = collection.find_one({'businessID': business_id})
+
+    if not business_data:
+        return jsonify({'error': 'Business not found'}), 404
+
+    # Find the product within the 'products' array
+    products = business_data.get('products', [])
+
+    for product in products:
+        if product.get('productID') == product_id:
+            # Remove the specified review from the 'review' array in the product
+            product_reviews = product.get('review', [])
+
+            updated_reviews = [r for r in product_reviews if r.get('reviewID') != review_id]
+
+            # Update the document in the database
+            collection.update_one({'businessID': business_id, 'products.productID': product_id},
+                                             {'$set': {'products.$.review': updated_reviews}})
+            return jsonify({'message': 'Review removed successfully'})
+
+    return jsonify({'error': 'Product not found'}), 404
 
 #################################################################
 #################################################################
