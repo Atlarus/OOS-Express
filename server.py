@@ -2,8 +2,10 @@ from flask import Flask, request, jsonify
 from pymongo import MongoClient
 import os
 import hashlib
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 # Replace the URI with your own MongoDB connection string
 mongo_uri = "mongodb+srv://atlarusent:p2EQnKPeoyN4Xaet@main.zwuqy9k.mongodb.net/?retryWrites=true&w=majority"
@@ -202,14 +204,14 @@ def update_address():
 ###############################################################################
 ###############################################################################
     
-@app.route('/get_products_services', methods=['GET'])
-def get_products_services():
+@app.route('/get_products_services_events', methods=['GET'])
+def get_products_services_events():
     business_id = request.args.get('businessID')
 
     if not business_id:
         return jsonify({'error': 'BusinessID parameter is missing'}), 400
 
-    # Query the database to retrieve products and services based on the provided businessID
+    # Query the database to retrieve products, services, and events based on the provided businessID
     business_data = collection.find_one({'businessID': business_id})
 
     if not business_data:
@@ -217,11 +219,13 @@ def get_products_services():
 
     products = business_data.get('products', [])
     services = business_data.get('services', [])
+    events = business_data.get('events', [])
 
     result = {
         'businessID': business_id,
         'products': products,
-        'services': services
+        'services': services,
+        'events': events
     }
 
     return jsonify(result)
