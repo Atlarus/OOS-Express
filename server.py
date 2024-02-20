@@ -3,6 +3,8 @@ from pymongo import MongoClient
 import os
 import hashlib
 from flask_cors import CORS
+from bson import Timestamp
+from datetime import datetime, timezone, timedelta
 
 app = Flask(__name__)
 CORS(app)
@@ -217,18 +219,39 @@ def get_products_services_events():
     if not business_data:
         return jsonify({'error': 'Business not found'}), 404
 
-    products = business_data.get('products', [])
-    services = business_data.get('services', [])
+    # Convert timestamps to datetime objects
+    for product in business_data.get('products', []):
+        for option in product.get('options', []):
+            if 'time' in option:
+                option['time'] = convert_timestamp(option['time'])
+
+    for service in business_data.get('services', []):
+        for slot in service.get('slots', []):
+            if 'time' in slot:
+                slot['time'] = convert_timestamp(slot['time'])
+
     events = business_data.get('events', [])
 
     result = {
         'businessID': business_id,
-        'products': products,
-        'services': services,
+        'products': business_data.get('products', []),
+        'services': business_data.get('services', []),
         'events': events
     }
 
     return jsonify(result)
+
+def convert_timestamp(timestamp):
+    # Convert to UTC datetime
+    utc_datetime = datetime.utcfromtimestamp(timestamp.time)
+
+    # Create a timedelta using the seconds and increment from the timestamp
+    delta = timedelta(seconds=timestamp.inc)
+
+    # Add the timedelta to the UTC datetime to set the correct tzinfo
+    converted_datetime = utc_datetime + delta
+
+    return converted_datetime.replace(tzinfo=timezone.utc)
 
 ### ADD REVIEW TO PRODUCT ###
 @app.route('/insert_review', methods=['POST'])
