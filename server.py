@@ -96,17 +96,18 @@ def register_referral(referral_code, business_id):
 ### LOGIN BUSINESS ###
 @app.route('/business_login', methods=['POST'])
 def business_login():
+    business_id = request.json.get('businessID')
     user_id = request.json.get('userID')
     password = request.json.get('password')
 
-    if not user_id or not password:
+    if not user_id or not password or not business_id:
         return jsonify({'error': 'Invalid request data'}), 400
 
     # Query the database to find the business based on userID
-    business_data = collection.find_one({'userID': user_id})
+    business_data = collection.find_one({'businessID': business_id, 'userID': user_id})
 
     if not business_data:
-        return jsonify({'error': 'Invalid userID or password'}), 401
+        return jsonify({'error': 'Invalid businessID, userID, or password'}), 401
 
     # Retrieve the hashed password from the database
     stored_password = business_data.get('password', '')
@@ -119,14 +120,8 @@ def business_login():
         return jsonify({'error': 'Invalid userID or password'}), 401
 
     # You may want to return additional information such as businessID, email, etc.
-    response_data = {
-        'message': 'Login successful',
-        'businessID': business_data['businessID'],
-        'email': business_data['email']
-        # Add more fields as needed
-    }
-
-    return jsonify(response_data)
+    # In this case, returning a JSON response indicating success
+    return jsonify({'success': True})
 
 ##############################################################################
 ##############################################################################
